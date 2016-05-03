@@ -1,0 +1,104 @@
+HashMap工作原理：
+
+get()方法：
+
+public V get(Object key) {
+        Node<K,V> e;
+        return (e = getNode(hash(key), key)) == null ? null : e.value;
+}
+
+hashMap.get()返回的是一个Node类型的value 的值，这个Node即是Map.Entery()接口的具体实现类,如下：
+
+static class Node<K,V> implements Map.Entry<K,V> {
+        final int hash;
+        final K key;
+        V value;
+        Node<K,V> next;
+
+        Node(int hash, K key, V value, Node<K,V> next) {
+            this.hash = hash;
+            this.key = key;
+            this.value = value;
+            this.next = next;
+        }
+
+        public final K getKey()        { return key; }
+        public final V getValue()      { return value; }
+        public final String toString() { return key + "=" + value; }
+
+        public final int hashCode() {
+            return Objects.hashCode(key) ^ Objects.hashCode(value);
+        }
+
+    ......
+      
+    }
+ 可以看到Node是一个简单的单链表的节点，因此可以大致认为HashMap是一个单链表结构来存储的(暂且这么理解，当hash值所对应的位置上只有一个元素时，这个Node即是一个单元素，后面会看到实际这个链表只是一个具体hash值计算出的hashTale位置上的元素)，存储的值包括hash值,key,value,所以存储的除了value之外还有两个值，实际上还有一个表示下一元素的引用，
+
+ 在hashMap.get()方法中，首先调用hash(key)方法，hash()方法实现如下：
+
+static final int hash(Object key) {
+        int h;
+        return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+    }
+null的hash值为0，
+
+可以看到计算hash值的时候，依据key的hashCode,将hashCode的高十六位与低十六位进行异或运算，返回一个32位的int值，这个int值的高16位保持key.hashCode的高十六位不变。
+
+取得hash值 之后，调用getNode()方法：
+final Node<K,V> getNode(int hash, Object key) {
+        Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
+        if ((tab = table) != null && (n = tab.length) > 0 &&
+            (first = tab[(n - 1) & hash]) != null) {
+            if (first.hash == hash && // always check first node
+                ((k = first.key) == key || (key != null && key.equals(k))))
+                return first;
+            if ((e = first.next) != null) {
+                if (first instanceof TreeNode)
+                    return ((TreeNode<K,V>)first).getTreeNode(hash, key);
+                do {
+                    if (e.hash == hash &&
+                        ((k = e.key) == key || (key != null && key.equals(k))))
+                        return e;
+                } while ((e = e.next) != null);
+            }
+        }
+        return null;
+    }
+
+ Node<K,V>[] tab;
+这个是hashTable的结构，是一个由Node构成的数组，即由hashMap存储元素的结构构成的数组，这个数组每个元素的位置即是一个bucket，这个数组的每个bucket上是一个链表，  
+
+first = tab[(n - 1) & hash]
+这行代码表示，hash函数为 (n-1)&hash,使用hash函数计算得到bucket位置，然后得到这个bucket上链表的头结点。
+
+if (first.hash == hash && // always check first node
+                ((k = first.key) == key || (key != null && key.equals(k))))
+                return first;
+首先验证参数key的hash值是否与头结点的hash值相同，然后验证两个key是否地址相同，地址如果不同就调用equals方法比较两个key的值是否相同，如果满足key地址相同或者值相同，则返回这个节点，最终再由hashMap.get方法返回这个节点的value
+
+这里有个问题，bucket的位置是依据hashTable的大小与key的hash值计算的即(n-1)&hash，链表上的所有节点都对应一个bucket,对于同一个hashTable的n也是相同的，所以反向推出他们的hash值肯定相同,然而这里总是先检测hash值是否相同，所以什么情况下同一bucket里的元素的hash值会不同呢？
+
+if ((e = first.next) != null) {
+                if (first instanceof TreeNode)
+                    return ((TreeNode<K,V>)first).getTreeNode(hash, key);
+                do {
+                    if (e.hash == hash &&
+                        ((k = e.key) == key || (key != null && key.equals(k))))
+                        return e;
+                } while ((e = e.next) != null);
+            }
+上面这段代码表明，如果头结点不是所找的目标，则遍历这个bucket的元素（以单链表存储）。对于头结点是TreeNode的情况，使用不同的遍历方法。
+
+Node<K,V> first 表明hashMap会走第二个分支。
+
+
+
+
+
+
+
+
+
+
+
