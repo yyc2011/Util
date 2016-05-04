@@ -94,11 +94,116 @@ Node<K,V> first 表明hashMap会走第二个分支。
 
 
 
+put()方法：
+public V put(K key, V value) {
+        return putVal(hash(key), key, value, false, true);
+    }
+hashMap.put()方法与get方法一样，也是需要先调用hash方法计算key的hash值，之后调用putVal方法进行插入值
 
+ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
+                   boolean evict) {
+        Node<K,V>[] tab; Node<K,V> p; int n, i;
+        if ((tab = table) == null || (n = tab.length) == 0)
+            n = (tab = resize()).length;
+        if ((p = tab[i = (n - 1) & hash]) == null)
+            tab[i] = newNode(hash, key, value, null);
+        else {
+            Node<K,V> e; K k;
+            if (p.hash == hash &&
+                ((k = p.key) == key || (key != null && key.equals(k))))
+                e = p;
+            else if (p instanceof TreeNode)
+                e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+            else {
+                for (int binCount = 0; ; ++binCount) {
+                    if ((e = p.next) == null) {
+                        p.next = newNode(hash, key, value, null);
+                        if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                            treeifyBin(tab, hash);
+                        break;
+                    }
+                    if (e.hash == hash &&
+                        ((k = e.key) == key || (key != null && key.equals(k))))
+                        break;
+                    p = e;
+                }
+            }
+            if (e != null) { // existing mapping for key
+                V oldValue = e.value;
+                if (!onlyIfAbsent || oldValue == null)
+                    e.value = value;
+                afterNodeAccess(e);
+                return oldValue;
+            }
+        }
+        ++modCount;
+        if (++size > threshold)
+            resize();
+        afterNodeInsertion(evict);
+        return null;
+    }
 
+如下：
+ if ((tab = table) == null || (n = tab.length) == 0)
+            n = (tab = resize()).length;
+在putVal方法中，先验证hasTable是否为空或者大小为0，如果是这样，就调用reszie（）方法获取一个新的hashTable
+if ((p = tab[i = (n - 1) & hash]) == null)
+            tab[i] = newNode(hash, key, value, null);
+之后使用hash函数计算key对应的bucket位置 即i=(n - 1) & hash,如果这个buckrt为空，则new一个新的Node,newNode方法如下：
+ Node<K,V> newNode(int hash, K key, V value, Node<K,V> next) {
+        return new Node<>(hash, key, value, next);
+    }
 
+之后做这样一件事：
 
+else {
+        for (int binCount = 0; ; ++binCount) {
+            if ((e = p.next) == null) {
+                p.next = newNode(hash, key, value, null);
+                if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                    treeifyBin(tab, hash);
+                break;
+            }
+            if (e.hash == hash &&
+                ((k = e.key) == key || (key != null && key.equals(k))))
+                break;
+            p = e;
+        }
+    }
+遍历这个bucket的节点链表，每次移动到一个新的元素，判断这个元素的key是否与新插入的相同（hash相同，同时地址相同或者值相同），相同则赋予新值，不相同则new一个新的节点插入到链表末尾。
+其中有这样一段代码：
+if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+            treeifyBin(tab, hash);
 
+TREEIFY_THRESHOLD的声明如下：
+static final int TREEIFY_THRESHOLD = 8;
+这个字段表示bucket容器计数，hashMap中初始化为8，即每个bucket中的元素超大于等于8时，这个bucket里面的元素将不再使用单链表来存储，而是使用二叉树来存储，此时调用
+treeifyBin(tab, hash)
+来进行结构转换，这时你可以再回头去看看前面介绍get方法时有对节点类型做判断是不是TreeNode的语句，所以在上面的遍历bucket的链表前，有下面这样一个判断语句，
+ else if (p instanceof TreeNode)
+            e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+就是当这个bucket中的容器为二叉树时，使用二叉树进行插入。
 
+前面说对于判断key已经存在时，使用赋予新值的操作如下：
+if (e != null) { // existing mapping for key
+                V oldValue = e.value;
+                if (!onlyIfAbsent || oldValue == null)
+                    e.value = value;
+                afterNodeAccess(e);
+                return oldValue;
+            }
+下面这行代码：
+afterNodeAccess(e);
+这是一个回调函数，留给LinkedHashMap使用的，在hashMap中不做任何操作，它的实现如下，类似的还有两个方法
 
+// Callbacks to allow LinkedHashMap post-actions
+    void afterNodeAccess(Node<K,V> p) { }
+    void afterNodeInsertion(boolean evict) { }
+    void afterNodeRemoval(Node<K,V> p) { }
 
+插入完新的数据后，需要根据当前hashMap的大小是否达到临界值，来决定是否需要进行resize操作，即申请一个新的更大的hashTable，并进行值的迁移，这个临界值由负载因子决定，一般为0.75，这是因为当容量达到这个值时，hash的碰撞将会显著增高，效率下降。
+//The next size value at which to resize (capacity * load factor).
+ int threshold;
+
+//The load factor for the hash table.
+final float loadFactor;
