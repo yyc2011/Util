@@ -1,0 +1,36 @@
+1.在配置springMVC框架时，设置的拦截url后缀名和渲染的视图模板后缀名不要相同
+例如：
+web.xml中设置的拦截为.htm
+mvc.xml中设置的视图渲染后缀名就不要为.xml，可以选择.html等
+<!-- 配置DispatcherServlet所需要拦截的 url -->
+	<servlet-mapping>
+		<servlet-name>springMVC</servlet-name>
+		<url-pattern>*.htm</url-pattern>
+	</servlet-mapping>
+  <!-- 配置SpringMVC的视图渲染器， 让其前缀为:/ 后缀为.jsp  将视图渲染到/page/<method返回值>.html中 -->  
+    <beans:bean class="org.springframework.web.servlet.view.InternalResourceViewResolver"   p:prefix="/page/" p:suffix=".html"/>   
+  
+2.classpath是什么？
+classpath是项目编译时扫描的文件目录
+通常新建一个项目，classpath是src目录，这个是可以改变的，右键项目->Build Path->Configure Build Path->Source
+在这个页面，选择src,然后点击右侧的remove，然后点击OK，就可以看到src目录的位置变了，这表明它已经不在classpath下了，也就是以后编译时不会再扫描这个目录了。
+再右键项目->Build Path->Configure Build Path->Source。点击右侧的Add Folder，选中年src，点击OK即可，又恢复原样了，添加新的目录时，可能会报错，这时候注意列出的目录里不要同时出现父目录和子目录，比如添加了src，又添加了src/main，这个时候去掉src，只勾选src/main即可，
+
+
+3.Tomcat无法启动，即启动startup.bat时闪退
+可能原因
+1）端口被占用吗，打开cmd，netstat -ano查看端口使用情况，找到占用与tomcat相同端口号的程序PID，tomcat默认端口为8080，任务栏右键资源管理器，找到这个PID对应的进程结束任务
+2）Java相关的环境变量没有配置，谷歌或者百度下，配置三个变量PATH,JAVA_HOME,CLASSPATH
+
+
+4.在eclipse中启动tomcat时失败
+1）如果是抛文件找不到异常，查看classpath配置，然后看文件的路径是否在classpath下
+2）如果正常，则看下web.xml中配置的加载spring 相关xml文件时是不是又把web.xml引入进去了
+3）看下classpath下是不是把jar包库也引入进去了
+
+
+5.HttpServletRequest相关的web类找不到包，提示里也没有import提示
+buildpath中增加runtime库选择server runtime
+
+6.builpath中已经增加了相关库，编译无错，但是运行时控制台打印错误找不到加载类
+依赖的包需要放到WEB-INF/lib目录下才能在运行时被加载
